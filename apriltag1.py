@@ -121,3 +121,22 @@ while cap.isOpened():
 
 cv2.destroyAllWindows()
 cap.release()
+
+
+
+
+# Printed Apriltag is 6.25  inches wide and tall
+
+# Measured data
+# Distance  Top dim in pixels   Side dim in pixels
+# 18"   372     290
+# 24"   280     290
+# 48"   97      97
+# 96"   73      73
+# 120"  59      59
+# 144"  48      48
+# 168"  42      42
+# 192"  37      37
+# 216"  32      32
+# 264"  28      28
+
