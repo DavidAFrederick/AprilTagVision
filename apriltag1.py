@@ -5,12 +5,13 @@
 # Source:
 # https://www.youtube.com/watch?v=H77ieFq5mQ8
 # https://pyimagesearch.com/pyimagesearch-university/#collapse6
-#
+# https://pyimagesearch.com/2015/01/19/find-distance-camera-objectmarker-using-python-opencv/
 
 
 # import the necessary packages
 import apriltag
 import cv2
+import math
 
 # Open the default camera and read a frame
 cap = cv2.VideoCapture(0)
@@ -77,10 +78,11 @@ while cap.isOpened():
         # print ("ptC: ", ptC)
         # print ("ptD: ", ptD)
 
-        print (f"Top size = {ptB[0]-ptA[0]}")
-        print (f"Size size = {ptC[1]-ptB[1]}")
+        top_size_in_pixels = ptB[0]-ptA[0]
+        side_size_in_pixels = ptC[1]-ptB[1]
 
-
+        print (f"Top size  = {top_size_in_pixels}")
+        print (f"Size size = {side_size_in_pixels}")
 
         # draw the bounding box of the AprilTag detection   (BGR)
         cv2.line(image, ptA, ptB, (0, 255, 0), 2)      #  Green   Top of April Tag
@@ -90,27 +92,55 @@ while cap.isOpened():
 
         # # draw the center (x, y)-coordinates of the AprilTag
         (cX, cY) = (int(r.center[0]), int(r.center[1]))
+        center_of_apriltag = cX
         print (f"Shape of image: {gray.shape} ")
         print (f"(cX, cY)  {(cX, cY)}")
 
-        # cv2.circle(image, (cX, cY), 5, (0, 0, 255), -1)
+        cv2.circle(image, (cX, cY), 5, (0, 0, 255), -1)    # Draw a dot in the center
 
         print (f"image shape {image.shape}")
-        print (f"Center: X pixels off Horizonal center (+left) {image.shape[1]/2-cX}")
-        print (f"Center: Y pixels off Vertical center (+Above) {image.shape[0]/2-cY}")
+        center_of_image_x_pixels = image.shape[1]/2
+        center_of_image_y_pixels = image.shape[0]/2
+        
+        print (f"Center: X pixels off Horizonal center (+left) {center_of_image_x_pixels - cX}")
+        print (f"Center: Y pixels off Vertical center (+Above) {center_of_image_y_pixels - cY}")
 
+        # "Distance to target in inches" = ("size in inches of known side" x "Focal Length")/ "Number of pixels on known size" 
+        # D' = 7006 / Pixels
+        size_of_top_edge_in_pixels = ptB[0]-ptA[0]
+        distance_to_target_in_inches = (7006/size_of_top_edge_in_pixels)  
+        distance_to_target_in_feet = distance_to_target_in_inches/12   # Divide by  12 to get feet
+
+        #  Angle off center
+        #  Tangent(offset_angle) = Opposite side / Adjancent side
+        #  offset_angle_in_radians = arc-tangent (0.5 * AprilTag Width)/ distance_to_target_in_inches
+
+        # Use the fixed width of the apriltag as a reference (6.25 inches top_size_in_pixels)
+        horizonal_inches_per_pixel = 6.25 / top_size_in_pixels
+        center_of_apriltag_offset_in_pixels = center_of_image_x_pixels - cX
+        center_of_apriltag_offset_in_inches = center_of_apriltag_offset_in_pixels * horizonal_inches_per_pixel
+        
+        offset_angle_in_radians = math.atan(center_of_apriltag_offset_in_inches/distance_to_target_in_inches)
+        offset_angle_in_degrees = math.degrees(offset_angle_in_radians)
+
+        # Draw lines on the  screen  Shape of image: (800, 1280)  height, width
+        width = 1280
+        height = 800
+        half_width = int(width/2)
+        half_height = int(height/2)
+
+        cv2.line(image, (0, half_height), (width, half_height), (255, 255, 255), 2)    #BGR      Horizonal line across center
+        cv2.line(image, (half_width,0), (half_width,height), (255, 255, 255), 2)    #BGR      Vertical line across center
 
         # draw the tag family on the image
         tagFamily = r.tag_family.decode("utf-8")
-        tagId = str(r.tag_id)
-        cv2.putText(image, tagId, (ptA[0], ptA[1] - 15),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        
-
-        # Shape of image: (800, 1280)   height, width
-        #  Distance:
-        #  We know the distance between the top two corners of the physical target
-        #  We can measure the viewed number of pixles
+        tagId = "TagId: " + str(r.tag_id)  
+        cv2.putText(image, tagId, (ptA[0], ptA[1] - 15), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        distanceText = "Distance: " + str(f"{distance_to_target_in_feet:.2f}") 
+        cv2.putText(image, distanceText, (ptA[0], ptA[1] - 45), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)  #BGR colors
+        offsetAngleText = "Angle: " + str(f"{offset_angle_in_degrees:.3f}")
+        # offsetAngleText = "Angle: " + str(f"{offset_angle_in_radians:.4f}")
+        cv2.putText(image, offsetAngleText, (ptA[0], ptA[1] - 75), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)  #BGR colors
         
 
     # show the output image after AprilTag detection
@@ -131,7 +161,7 @@ cap.release()
 # Distance  Top dim in pixels   Side dim in pixels
 # 18"   372     290
 # 24"   280     290
-# 48"   97      97
+# 48"   144     150
 # 96"   73      73
 # 120"  59      59
 # 144"  48      48
@@ -139,4 +169,18 @@ cap.release()
 # 192"  37      37
 # 216"  32      32
 # 264"  28      28
+
+
+# F = (P x D) / W
+
+# Focal length = (Pixel x distance / width)
+# [24"]     285 x 24 / 6.25  = 1094
+# [48"]     148  x 48 / 6.25 = 1136
+# [96"]     73  x 96 / 6.25  = 1121
+# [120"]    59  x 120 /6.25  = 1132  
+
+# "Distance to target in inches" = ("size in inches of known side" x "Focal Length")/ "Number of pixels on known size" 
+# D’ = (W x F) / P   =  6.25 x 1121 / P
+# D' = 7006 / Pixels
+
 
