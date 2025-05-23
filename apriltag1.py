@@ -12,6 +12,19 @@
 import apriltag
 import cv2
 import math
+from gpiozero import AngularServo, LED
+from datetime import datetime
+from time import sleep
+
+
+# from gpiozero.pins.native import NativeFactory
+# from gpiozero import Device, AngularServo
+
+# Device.pin_factory = NativeFactory()
+
+servo = AngularServo(2, min_pulse_width=0.0006, max_pulse_width=0.0023)
+green_led = LED(3, active_high=False)
+
 
 # Open the default camera and read a frame
 cap = cv2.VideoCapture(0)
@@ -64,8 +77,14 @@ while cap.isOpened():
     # Bottom Right coner = Pt C
     # Bottom Left corner = Pt D
 
+    green_led.off()
     # loop over the AprilTag detection results
     for r in results:
+
+        if r:
+            green_led.on()
+            # print("AprilTag(s) detected!")
+
 
         (ptA, ptB, ptC, ptD) = r.corners
         ptB = (int(ptB[0]), int(ptB[1]))
@@ -81,8 +100,8 @@ while cap.isOpened():
         top_size_in_pixels = ptB[0]-ptA[0]
         side_size_in_pixels = ptC[1]-ptB[1]
 
-        print (f"Top size  = {top_size_in_pixels}")
-        print (f"Size size = {side_size_in_pixels}")
+        # print (f"Top size  = {top_size_in_pixels}")
+        # print (f"Size size = {side_size_in_pixels}")
 
         # draw the bounding box of the AprilTag detection   (BGR)
         cv2.line(image, ptA, ptB, (0, 255, 0), 2)      #  Green   Top of April Tag
@@ -93,17 +112,17 @@ while cap.isOpened():
         # # draw the center (x, y)-coordinates of the AprilTag
         (cX, cY) = (int(r.center[0]), int(r.center[1]))
         center_of_apriltag = cX
-        print (f"Shape of image: {gray.shape} ")
-        print (f"(cX, cY)  {(cX, cY)}")
+        # print (f"Shape of image: {gray.shape} ")
+        # print (f"(cX, cY)  {(cX, cY)}")
 
         cv2.circle(image, (cX, cY), 5, (0, 0, 255), -1)    # Draw a dot in the center
 
-        print (f"image shape {image.shape}")
+        # print (f"image shape {image.shape}")
         center_of_image_x_pixels = image.shape[1]/2
         center_of_image_y_pixels = image.shape[0]/2
         
-        print (f"Center: X pixels off Horizonal center (+left) {center_of_image_x_pixels - cX}")
-        print (f"Center: Y pixels off Vertical center (+Above) {center_of_image_y_pixels - cY}")
+        # print (f"Center: X pixels off Horizonal center (+left) {center_of_image_x_pixels - cX}")
+        # print (f"Center: Y pixels off Vertical center (+Above) {center_of_image_y_pixels - cY}")
 
         # "Distance to target in inches" = ("size in inches of known side" x "Focal Length")/ "Number of pixels on known size" 
         # D' = 7006 / Pixels
@@ -142,6 +161,17 @@ while cap.isOpened():
         # offsetAngleText = "Angle: " + str(f"{offset_angle_in_radians:.4f}")
         cv2.putText(image, offsetAngleText, (ptA[0], ptA[1] - 75), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)  #BGR colors
         
+
+        offset_angle_in_degrees = 0 - offset_angle_in_degrees + 8
+
+        servo.angle = int(offset_angle_in_degrees)
+        # sleep(1)
+        print (f"offset_angle_in_degrees: {int(offset_angle_in_degrees)}")
+# 
+
+        # current_time = datetime.now()
+        # print(f"current_time: {current_time}")
+        # print(current_time.strftime("%M:%S"))
 
     # show the output image after AprilTag detection
     cv2.imshow("Image", image)
